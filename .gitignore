@@ -1,0 +1,22 @@
+# Ignore Gradle project-specific cache directory
+.gradle
+
+# Ignore Gradle build output directory
+build
+
+*.csv
+*.stackdump
+*.class
+
+*.bat
+*.log
+*.jar
+*.war
+
+bin
+.vscode
+
+.idea/
+*iml
+
+*.rar
