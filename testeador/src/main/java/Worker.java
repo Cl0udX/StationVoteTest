@@ -53,20 +53,21 @@ public class Worker implements Observer {
 
     @Override
     public void vote(Current current) {
-        Thread t = new Thread(() -> {
+        Runnable r = () -> {
             System.out.println("Starting vote process...");
             Task task = subject.getTask();
             while (task != null) {
                 VoteStationPrx voteService = VoteStationPrx
                         .checkedCast(Testeador.mainCommunicator.stringToProxy(task.conection));
-                for(Map.Entry<String, Integer> votes : task.votes.entrySet()){
+                for (Map.Entry<String, Integer> votes : task.votes.entrySet()) {
                     callVoto(votes.getKey(), votes.getValue(), voteService);
                 }
                 task = subject.getTask();
             }
-        });
+        };
+        new Thread(r).start();
+        new Thread(r).start();
 
-        t.start();
     }
 
     public void callVoto(String document, int candidateId, VoteStationPrx voteService) {
