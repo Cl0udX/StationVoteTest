@@ -2,7 +2,9 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
 
 import com.zeroc.Ice.Communicator;
@@ -12,7 +14,7 @@ import com.zeroc.Ice.Util;
 
 public class Orquest {
 
-    public static List<String> documentos = new ArrayList<>();
+    public static Map<Integer, List<String>> documentos = new HashMap<>();
     
     public static void main(String[] args) {
 
@@ -42,12 +44,16 @@ public class Orquest {
                 String[] fields = line.split(",");
                 if (fields.length > 1) {
                     String documento = fields[1].trim();
-                    documentos.add(documento);
+                    Integer mesaId = Integer.parseInt(fields[4].trim());
+                    List<String> docs = documentos.getOrDefault(mesaId, new ArrayList<>());
+                    docs.add(documento);
+                    documentos.put(mesaId, docs);
                     count++;
                 }
             }
         } catch (IOException e) {
             e.printStackTrace();
+            scanner.close();
             return;
         }
         System.out.println("Ciudadanos cargados: " + documentos.size());
@@ -60,18 +66,10 @@ public class Orquest {
             adapter.add(service, Util.stringToIdentity("Subject"));
 
             adapter.activate();
-
+            service.loadClientsProxies();
             System.out.println("Enter 'exit' to finish.");
             String n = scanner.nextLine();
-            while (!n.equals("exit")) {
-                if (n.equals("start")){
-                    service.balanceStationsMenu();
-                    break;
-                }
-                
-                n = scanner.nextLine();
-            }
-            System.out.println("Los trabajadores estan registrados y valanceador.");
+
             while (!n.equals("exit")) {
                 System.out.println("Para evaluar las estacions:\n" +
                                    "1. Para evaluar las estaciones de votación\n" +

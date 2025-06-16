@@ -1,19 +1,24 @@
-import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 import com.zeroc.Ice.Current;
 
 import Demo.Observer;
 import Demo.QueryStationPrx;
+import Demo.SubjectPrx;
+import Demo.Task;
 import Demo.VoteStationPrx;
 
 public class Worker implements Observer {
 
-    private ArrayList<VoteStationPrx> votes;
-    private ArrayList<QueryStationPrx> querys;
+    private Map<Integer, VoteStationPrx> votes;
+    private Map<Integer, QueryStationPrx> querys;
+    private SubjectPrx subject;
 
-    public Worker() {
-        this.votes = new ArrayList<>();
-        this.querys = new ArrayList<>();
+    public Worker(SubjectPrx subjectPrx) {
+        this.votes = new HashMap<>();
+        this.querys = new HashMap<>();
+        subject = subjectPrx;
     }
 
     @Override
@@ -22,43 +27,54 @@ public class Worker implements Observer {
     }
 
     @Override
-    public void connect(String[] configs, String type, Current current) {
+    public void connect(Map<Integer, String> configs, String type, Current current) {
         if (type.equals("STATION_VOTE")) {
-            for (String config : configs) {
-                VoteStationPrx voteService = VoteStationPrx.checkedCast(Testeador.mainCommunicator.stringToProxy(config));
+            for (Map.Entry<Integer, String> entry : configs.entrySet()) {
+                String config = entry.getValue();
+                VoteStationPrx voteService = VoteStationPrx
+                        .checkedCast(Testeador.mainCommunicator.stringToProxy(config));
                 if (voteService == null) {
                     throw new Error("Invalid proxy for VoteService");
                 }
-                votes.add(voteService);
+                votes.put(entry.getKey(), voteService);
             }
         } else if (type.equals("STATION_QUERY")) {
-            for (String config : configs) {
-                QueryStationPrx queryStation = QueryStationPrx.checkedCast(Testeador.mainCommunicator.stringToProxy(config));
-                if (queryStation == null) {
-                    throw new Error("Invalid proxy for QueryStation");
+            for (Map.Entry<Integer, String> entry : configs.entrySet()) {
+                String config = entry.getValue();
+                QueryStationPrx voteService = QueryStationPrx
+                        .checkedCast(Testeador.mainCommunicator.stringToProxy(config));
+                if (voteService == null) {
+                    throw new Error("Invalid proxy for VoteService");
                 }
-                querys.add(queryStation);
+                querys.put(entry.getKey(), voteService);
             }
         }
     }
 
     @Override
-    public void vote(int[][] votes, Current current) {
-        for (int[] vote : votes) {
-            int candidateId = vote[1];
-            String document = String.valueOf(vote[0]);
-            for (VoteStationPrx voteService : this.votes) {
-                callVoto(document, candidateId, voteService);
-                callVoto(document, candidateId, voteService);//se llama dos veces para simular un error en la estacion
+    public void vote(Current current) {
+        Thread t = new Thread(() -> {
+            System.out.println("Starting vote process...");
+            Task task = subject.getTask();
+            while (task != null) {
+                VoteStationPrx voteService = VoteStationPrx
+                        .checkedCast(Testeador.mainCommunicator.stringToProxy(task.conection));
+                for(Map.Entry<String, Integer> votes : task.votes.entrySet()){
+                    callVoto(votes.getKey(), votes.getValue(), voteService);
+                }
+                task = subject.getTask();
             }
-        }
+        });
+
+        t.start();
     }
 
     public void callVoto(String document, int candidateId, VoteStationPrx voteService) {
         try {
             int result = voteService.vote(document, candidateId);
             if (result != 1) {
-                System.err.println("Error con el voto del lado de la estacion: " + voteService.toString() + ", voto: " + result);
+                System.err.println(
+                        "Error con el voto del lado de la estacion: " + voteService.toString() + ", voto: " + result);
             }
         } catch (Exception e) {
             System.err.println("Error: " + e.getMessage());

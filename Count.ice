@@ -1,8 +1,21 @@
 module Demo
 {   
     sequence<string> ListString;
+    dictionary<int, string> DictString;
+    dictionary<string, int> DictStringInt;
+
     sequence<int> IntSeq;
     sequence<IntSeq> MatrixInt;
+
+    //STATION_VOTE, STATION_QUERY
+
+    class Task{
+        int mesaId;
+        DictStringInt votes;
+        ListString documentsInvalids;
+        string conection;
+        string type;
+    }
 
     //server
     interface VoteService
@@ -27,8 +40,8 @@ module Demo
     interface Observer
     {
         void update(string s);
-        void connect(ListString configs, string type);
-        void vote(MatrixInt votes);
+        void connect(DictString configs, string type);
+        void vote();
     }
 
     // Orquest
@@ -36,6 +49,8 @@ module Demo
     {
         void registerObserver(string name, Observer* o);
         void removeObserver(string name);
+        
+        Task getTask();
 
     }
 }

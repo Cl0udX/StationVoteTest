@@ -1,0 +1,9 @@
+Station
+default
+-h localhost -p 25566
+1
+-h localhost -p 25567
+2
+-h localhost -p 25568
+3
+end

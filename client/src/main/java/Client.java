@@ -9,12 +9,12 @@ public class Client
 {
     public static void main(String[] args)
     {
-        // String name = "Default1-vote";
-        // for (int i = 0; i < args.length; i++) {
-        //     if ("-vote".equals(args[i]) && i + 1 < args.length) {
-        //         name = args[i + 1];
-        //     }
-        // } 
+        String port = "25566";
+        for (int i = 0; i < args.length; i++) {
+            if ("-port".equals(args[i]) && i + 1 < args.length) {
+                port = args[i + 1];
+            }
+        } 
 
         try(Communicator communicator = Util.initialize(args, "properties.cfg"))
         {
@@ -24,7 +24,7 @@ public class Client
                 throw new Error("Invalid proxy");
             }
 
-            ObjectAdapter adapter = communicator.createObjectAdapter("services");
+            ObjectAdapter adapter = communicator.createObjectAdapterWithEndpoints("service", "default -h localhost -p " + port);
             StationI stationObject = new StationI(printer);
             StationQueryI queryObject = new StationQueryI(printer);
             adapter.add(stationObject, Util.stringToIdentity("Station"));

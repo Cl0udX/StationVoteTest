@@ -3,22 +3,32 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Scanner;
+import java.util.concurrent.Semaphore;
 
 import com.zeroc.Ice.Current;
 
 import Demo.ObserverPrx;
 import Demo.Subject;
+import Demo.Task;
 
 public class OrcheService implements Subject {
 
+    public static final Integer MAX_VOTES_WORKER = 1000;
     private HashMap<String, ObserverPrx> observers;
+    private Queue<Task> tasksQueue;
+    private Map<Integer, String> configsPrx;
+    private Semaphore semaphore = new Semaphore(1);
     Scanner scanner;
 
     public OrcheService() {
         observers = new HashMap<>();
+        tasksQueue = new LinkedList<>();
         scanner = new Scanner(System.in);
     }
 
@@ -34,87 +44,26 @@ public class OrcheService implements Subject {
         observers.remove(id);
     }
 
-    public void balanceStationsByType(String stationType) {
-        System.out.println("Starting balance stations process... for type: " + stationType);
-        ArrayList<String> configsPrx = new ArrayList<>();
-        Scanner scanner = new Scanner(System.in);
+    public void loadClientsProxies() {
+        System.out.println("Loading client proxies...");
+        configsPrx = new HashMap<>();
         System.out.println("If end configurations, type 'end'.");
         System.out.println("Enter identity for conection ZEROC ICE (e.g., SimplePrinter)");
         String tag = scanner.nextLine();
         System.out.println("Enter protocol (e.g., tcp, udp or enter for default):");
-        String protocol = scanner.nextLine();
+        String protocol = scanner.nextLine()+ " ";
         if (protocol.isEmpty()) {
-            protocol = "default";
+            protocol = "default ";
         }
-        String n;
+        System.out.println("Enter 'end' to finish or press any key to keep adding configurations:");
+        System.out.println("Enter host and port: ex: -h localhost -p 8080");
+        System.out.println("Enter mesa id");
+        String proxyConnection = scanner.nextLine();
         do {
-            System.out.println("Enter host:");
-            String host = scanner.nextLine();
-            System.out.println("Enter ports (comma separated): ex: 8080,8081,8082");
-            String ports = scanner.nextLine();
-            for (String port : ports.split(",")) {
-                configsPrx.add(tag.trim() + ":" + protocol + " -p " + port.trim() + " -h " + host.trim());
-            }
-            System.out.println("Enter 'end' to finish or press any key to keep adding configurations:");
-            n = scanner.nextLine();
-        } while (!n.equals("end"));
-        int totalWorkers = observers.size();
-        if (totalWorkers == 0) {
-            System.out.println("No workers registered. Cannot balance stations.");
-            return;
-        }
-        int totalConfigs = configsPrx.size();
-        if (totalConfigs == 0) {
-            System.out.println("No configurations provided. Cannot balance stations.");
-            return;
-        }
-        System.out.println("Configurations received: " + configsPrx.size());
-
-        int base = totalConfigs / totalWorkers;
-        int remainder = totalConfigs % totalWorkers;
-        int start = 0;
-
-        for (Map.Entry<String, ObserverPrx> entry : observers.entrySet()) {
-            String id = entry.getKey();
-            ObserverPrx observer = entry.getValue();
-            int end = start + base + (remainder > 0 ? 1 : 0);
-            List<String> assignedConfigs = configsPrx.subList(start, Math.min(end, totalConfigs));
-            start = end;
-            if (remainder > 0)
-                remainder--;
-            System.out.println("Assigning " + assignedConfigs.size() + " configurations to worker id: " + id);
-            String[] assignedConfigsArray = assignedConfigs.toArray(new String[0]);
-            observer.connect(assignedConfigsArray, stationType);
-        }
-    }
-
-    public void balanceStationsMenu() {
-        while (true) {
-            System.out.println("\n--- Menú de Balanceo de Estaciones ---");
-            System.out.println("1. Balancear estaciones de voto");
-            System.out.println("2. Balancear estaciones de consulta");
-            System.out.println("3. Salir");
-            System.out.print("Seleccione una opción: ");
-            String opcion = scanner.nextLine();
-
-            switch (opcion) {
-                case "1":
-                    System.out.println("Iniciando balanceo de estaciones de voto...");
-                    balanceStationsByType("STATION_VOTE");
-                    System.out.println("Balanceo de estaciones de voto completado.");
-                    break;
-                case "2":
-                    System.out.println("Iniciando balanceo de estaciones de consulta...");
-                    balanceStationsByType("STATION_QUERY");
-                    System.out.println("Balanceo de estaciones de consulta completado.");
-                    break;
-                case "3":
-                    System.out.println("Saliendo del menú.");
-                    return;
-                default:
-                    System.out.println("Opción no válida. Intente de nuevo.");
-            }
-        }
+            String mesaId = scanner.nextLine();
+            configsPrx.put(Integer.parseInt(mesaId), tag + ":" + protocol + proxyConnection);
+            proxyConnection = scanner.nextLine();
+        } while (!proxyConnection.equals("end"));
     }
 
     public void startEvaluationStationVote() {
@@ -123,6 +72,8 @@ public class OrcheService implements Subject {
         System.out.println("Starting evaluation of voting stations...");
         try (BufferedReader br = new BufferedReader(new FileReader("evatuationVotes.csv"))) {
             String line = br.readLine(); // Read header line
+            Map<Integer, Integer> votesCount = new HashMap<>();
+            int total = 0;
             while ((line = br.readLine()) != null) {
                 String[] fields = line.split(",");
                 if (fields.length == 3) {
@@ -132,50 +83,89 @@ public class OrcheService implements Subject {
                     System.out.println("Candidate ID: " + candidateId);
                     System.out.println("Candidate Name: " + candidateName);
                     System.out.println("Total Votes: " + totalVotes);
-                    callVoteService(Integer.parseInt(candidateId), Integer.parseInt(totalVotes));
+                    votesCount.put(Integer.parseInt(candidateId), Integer.parseInt(totalVotes));
+                    total += Integer.parseInt(totalVotes);
                 }
             }
+            callVoteService(votesCount, total);
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    public void callVoteService(int candidateId, int totalVotes) {
+    public void callVoteService(Map<Integer, Integer> votesCount, int totalVotes) {
         if (Orquest.documentos.size() < totalVotes) {
             System.out.println("No hay suficientes documentos para votar.");
             return;
         }
+        Map<Integer, Integer> votesDones = new HashMap<>();
+        int votesStations = configsPrx.size();
+        Map<Integer, List<String>> documents = Orquest.documentos;
+        int votesPerStation = totalVotes / votesStations;
 
-        int numWorkers = observers.size();
-        List<ObserverPrx> observerList = new ArrayList<>(observers.values());
+        List<Task> tasks = new ArrayList<>();
+        Iterator<Integer> keys = configsPrx.keySet().iterator();
+        while (keys.hasNext()) {
+            Integer mesaId = keys.next();
+            Task task = new Task();
+            task.mesaId = mesaId;
+            task.type = "STATION_VOTE";
+            task.conection = configsPrx.get(mesaId);
+            task.votes = new HashMap<>();
+            task.documentsInvalids = new String[]{};
+            List<String> docs = documents.get(mesaId);
 
-        List<List<String[]>> votosPorWorker = new ArrayList<>();
-        for (int i = 0; i < numWorkers; i++) {
-            votosPorWorker.add(new ArrayList<>());
+            if (docs.size() > votesPerStation) {
+                docs = docs.subList(0, votesPerStation);
+            }
+            for (String doc : docs) {
+                for (Map.Entry<Integer, Integer> entry : votesCount.entrySet()) {
+                    Integer candidateId = entry.getKey();
+                    Integer voteCount = entry.getValue() - votesDones.getOrDefault(candidateId, 0);
+                    if (voteCount <= 0) {
+                        continue; // Skip if no votes left for this candidate
+                    } else {
+                        task.votes.put(doc, candidateId);
+                        votesDones.put(candidateId, votesDones.getOrDefault(candidateId, 0) + 1);
+                        break;
+                    }
+                }
+            }
+
+            tasks.add(task);
         }
-
-        for (int i = 0; i < totalVotes; i++) {
-            String documento = Orquest.documentos.get(i);
-            int workerIndex = i % numWorkers;
-            votosPorWorker.get(workerIndex).add(new String[] { documento, String.valueOf(candidateId) });
+        for (int i = 0; i < tasks.size() - 1; i++) {
+            Task current = tasks.get(i);
+            // Task next = tasks.get(i + 1);
+            // current.documentsInvalids = new String[]{next.votes.keySet()};
+            tasksQueue.add(current);
         }
-
-        for (int i = 0; i < numWorkers; i++) {
-            ObserverPrx observer = observerList.get(i);
-            int[][] votos = votosPorWorker.get(i).stream()
-                    .map(voto -> new int[] { Integer.parseInt(voto[0]), Integer.parseInt(voto[1]) })
-                    .toArray(int[][]::new);
-            observer.vote(votos);
-        }
-
-        System.out
-                .println("Calling vote service for candidate ID: " + candidateId + " with total votes: " + totalVotes);
+        Task lastTask = tasks.get(tasks.size() - 1);
+        tasksQueue.add(lastTask);
+        observers.values().stream().forEach(o -> {
+            System.out.println("Notifying observer: " + o.toString());
+            o.vote();
+        });
 
     }
 
     public void startEvaluationStationQuery() {
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'startEvaluationStationQuery'");
+    }
+
+    @Override
+    public Task getTask(Current current) {
+        try {
+            semaphore.acquire();
+            System.out.println("Getting task from queue, current size: " + tasksQueue.size());
+            Task t = tasksQueue.poll();
+            return t;
+        } catch (Exception e) {
+            return null;
+        }finally{
+            semaphore.release();
+        }
     }
 
 }
