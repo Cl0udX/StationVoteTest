@@ -57,11 +57,17 @@ public class Worker implements Observer {
             System.out.println("Starting vote process...");
             Task task = subject.getTask();
             while (task != null) {
+                System.out.println("Processing task: " + task);
+                System.out.println(task.conection);
+                System.out.println(Testeador.mainCommunicator);
                 VoteStationPrx voteService = VoteStationPrx
                         .checkedCast(Testeador.mainCommunicator.stringToProxy(task.conection));
                 for (Map.Entry<String, Integer> votes : task.votes.entrySet()) {
+                    System.out.println(votes);
+                    System.out.println(voteService);
                     callVoto(votes.getKey(), votes.getValue(), voteService);
                 }
+                System.out.println("Voto realizado: " + task.mesaId);
                 task = subject.getTask();
             }
         };
@@ -71,9 +77,10 @@ public class Worker implements Observer {
     }
 
     public void callVoto(String document, int candidateId, VoteStationPrx voteService) {
+        System.out.println("Votando documento: " + document + ", candidato: " + candidateId + ", servicio: " + voteService.toString());
         try {
             int result = voteService.vote(document, candidateId);
-            if (result != 1) {
+            if (result != 0) {
                 System.err.println(
                         "Error con el voto del lado de la estacion: " + voteService.toString() + ", voto: " + result);
             }

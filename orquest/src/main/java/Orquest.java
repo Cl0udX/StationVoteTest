@@ -63,15 +63,16 @@ public class Orquest {
             adapter.add(service, Util.stringToIdentity("Subject"));
 
             adapter.activate();
-            System.out.println("Enter 'exit' to finish.");
-            String n = scanner.nextLine();
+            String n = null;
             
-            while (!n.equals("exit")) {
+            do {
+                
                 service.loadClientsProxies();
                 System.out.println("Para evaluar las estacions:\n" +
-                        "1. Para evaluar las estaciones de votación\n" +
-                        "2. Para evaluar las estaciones de consulta\n" +
-                        "3. Ingrese 'exit' para salir");
+                "1. Para evaluar las estaciones de votación\n" +
+                "2. Para evaluar las estaciones de consulta\n" +
+                "3. Ingrese 'exit' para salir");
+                n = scanner.nextLine();
                 if (n.equals("1")) {
                     service.startEvaluationStationVote();
                 } else if (n.equals("2")) {
@@ -79,8 +80,7 @@ public class Orquest {
                 } else if (!n.equals("exit")) {
                     System.out.println("Opción no válida. Intente de nuevo.");
                 }
-                n = scanner.nextLine();
-            }
+            } while (!n.equals("exit"));
             scanner.close();
 
             communicator.waitForShutdown();

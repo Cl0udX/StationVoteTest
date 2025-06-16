@@ -94,10 +94,10 @@ public class OrcheService implements Subject {
     }
 
     public void callVoteService(Map<Integer, Integer> votesCount, int totalVotes) {
-        if (Orquest.documentos.size() < totalVotes) {
-            System.out.println("No hay suficientes documentos para votar.");
-            return;
-        }
+        // if (Orquest.documentos.size() < totalVotes) {
+        //     System.out.println("No hay suficientes documentos para votar.");
+        //     return;
+        // }
         Map<Integer, Integer> votesDones = new HashMap<>();
         int votesStations = configsPrx.size();
         Map<Integer, List<String>> documents = Orquest.documentos;
@@ -111,6 +111,7 @@ public class OrcheService implements Subject {
             task.mesaId = mesaId;
             task.type = "STATION_VOTE";
             task.conection = configsPrx.get(mesaId);
+            System.out.println(task.conection);
             task.votes = new HashMap<>();
             task.documentsInvalids = new String[]{};
             List<String> docs = documents.get(mesaId);
