@@ -11,14 +11,12 @@ import com.zeroc.Ice.Communicator;
 import com.zeroc.Ice.ObjectAdapter;
 import com.zeroc.Ice.Util;
 
-
 public class Orquest {
 
     public static Map<Integer, List<String>> documentos = new HashMap<>();
-    
+
     public static void main(String[] args) {
 
-        
         System.out.println("¿Cuántos ciudadanos desea cargar?");
         System.out.println("Ingrese un número o escriba 'todos' para cargar los 100000000:");
         Scanner scanner = new Scanner(System.in);
@@ -58,24 +56,22 @@ public class Orquest {
         }
         System.out.println("Ciudadanos cargados: " + documentos.size());
 
-        try(Communicator communicator = Util.initialize(args, "properties.cfg"))
-        {
+        try (Communicator communicator = Util.initialize(args, "properties.cfg")) {
 
             ObjectAdapter adapter = communicator.createObjectAdapter("services");
             OrcheService service = new OrcheService();
             adapter.add(service, Util.stringToIdentity("Subject"));
 
             adapter.activate();
-            service.loadClientsProxies();
             System.out.println("Enter 'exit' to finish.");
             String n = scanner.nextLine();
-
+            
             while (!n.equals("exit")) {
+                service.loadClientsProxies();
                 System.out.println("Para evaluar las estacions:\n" +
-                                   "1. Para evaluar las estaciones de votación\n" +
-                                   "2. Para evaluar las estaciones de consulta\n" +
-                                   "3. Ingrese 'exit' para salir");
-                n = scanner.nextLine();
+                        "1. Para evaluar las estaciones de votación\n" +
+                        "2. Para evaluar las estaciones de consulta\n" +
+                        "3. Ingrese 'exit' para salir");
                 if (n.equals("1")) {
                     service.startEvaluationStationVote();
                 } else if (n.equals("2")) {
@@ -83,6 +79,7 @@ public class Orquest {
                 } else if (!n.equals("exit")) {
                     System.out.println("Opción no válida. Intente de nuevo.");
                 }
+                n = scanner.nextLine();
             }
             scanner.close();
 
